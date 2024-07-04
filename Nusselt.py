@@ -1,7 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from CoolProp.CoolProp import PropsSI
-from matplotlib.animation import FuncAnimation
+# from matplotlib.animation import FuncAnimation
+import matplotlib.animation as animation
 
 
 # Function to calculate h_fluid using CoolProp
@@ -73,7 +74,6 @@ mu_air = PropsSI('V', 'T', T_air, 'P', 101325, 'Air')
 rho_air = PropsSI('D', 'T', T_air, 'P', 101325, 'Air')
 
 # Assuming characteristic length = outer diameter of the pipe
-
 Re_air = (rho_air * V_air * outer_diameter) / mu_air
 Nu_air = 0.3 + (0.62 * Re_air ** 0.5 * Pr_air ** (1/3)) / (1 + (0.4 / Pr_air) ** (2/3)) ** 0.25
 h_outer = Nu_air * k_air / outer_diameter  # W/m^2-K
@@ -105,48 +105,47 @@ for t in range(1, num_time_steps + 1):
     for i in range(1, num_radial_steps - 1):  #Conduction through pipe wall
         T[i, t] = T[i, t-1] + alpha * dt * ((T[i+1, t-1] - 2*T[i, t-1] + T[i-1, t-1]) / dr**2 + (T[i+1, t-1] - T[i-1, t-1]) / (r[i] * dr))
     
-
     # Outer surface boundary condition (convective with air)
     T[-1, t] = T[-1, t-1] + 2 * alpha * dt / dr**2 * (T[-2, t-1] - T[-1, t-1]) + 2 * h_air * dt / (rho_wall * cp_wall * dr) * (T_air - T[-1, t-1])
 
 # Convert temperature to Celsius for plotting
 T_C = T - 273.15
 
-# Plot results
-plt.figure(figsize=(10, 6))
-for i in range(0, num_time_steps + 1, int(num_time_steps / 10)):
-    plt.plot(r, T_C[:, i], label=f'Time = {i*dt} s')
-plt.xlabel('Radius (m)')
-plt.ylabel('Temperature (°C)')
-plt.legend()
-plt.title('Temperature Distribution in Pipe Wall Over Time')
-plt.grid(True)
-plt.show()
-
-# """
-# Animated Line
-# """
-
-# # Set up the figure and axis
-# fig, ax = plt.subplots()
-# line, = ax.plot(r, T_C[:, 0], color='blue')
-# ax.set_xlabel('Radius (m)')
-# ax.set_ylabel('Temperature (°C)')
-# ax.set_title('Temperature Distribution in Pipe Wall Over Time')
-# ax.grid(True)
-# ax.set_ylim(-55, 38)  # Set y-axis range
-
-# # Animation update function
-# def update(frame):
-#     line.set_ydata(T_C[:, frame])
-#     ax.set_title(f'Temperature Distribution at Time = {frame*dt:.0f} s')  # Ensure title updates correctly
-#     return line,
-
-# # Create the animation
-# ani = FuncAnimation(fig, update, frames=num_time_steps + 1, blit=False)
-
-# # Display the animation
+# # Plot results
+# plt.figure(figsize=(10, 6))
+# for i in range(0, num_time_steps + 1, int(num_time_steps / 10)):
+#     plt.plot(r, T_C[:, i], label=f'Time = {i*dt} s')
+# plt.xlabel('Radius (m)')
+# plt.ylabel('Temperature (°C)')
+# plt.legend()
+# plt.title('Temperature Distribution in Pipe Wall Over Time')
+# plt.grid(True)
 # plt.show()
+
+"""
+Animated Line
+"""
+
+# Set up the figure and axis
+fig, ax = plt.subplots()
+line, = ax.plot(r, T_C[:, 0], color='blue')
+ax.set_xlabel('Radius (m)')
+ax.set_ylabel('Temperature (°C)')
+ax.set_title('Temperature Distribution in Pipe Wall Over Time')
+ax.grid(True)
+ax.set_ylim(-55, 38)  # Set y-axis range
+
+# Animation update function
+def update(frame):
+    line.set_ydata(T_C[:, frame])
+    ax.set_title(f'Temperature Distribution at Time = {frame*dt:.0f} s')  # Ensure title updates correctly
+    return line,
+
+# Create the animation
+ani = animation.FuncAnimation(fig, update, frames=num_time_steps + 1, blit=False)
+
+# Display the animation
+plt.show()
 
 """
 Animated Heatmap
@@ -167,7 +166,10 @@ Animated Heatmap
 #     return heatmap,
 
 # # Create the animation
-# ani = FuncAnimation(fig, update, frames=num_time_steps + 1, interval=50, blit=False)  # Set blit to False
+# ani = animation.FuncAnimation(fig, update, frames=num_time_steps + 1, interval=50, blit=False)  # Set blit to False
 
 # # Display the animation
 # plt.show()
+
+#Save the animation as a gif
+ani.save(filename='Line.gif', writer='pillow', fps=30, metadata='Julian Daivs')

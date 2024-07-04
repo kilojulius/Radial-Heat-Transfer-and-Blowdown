@@ -2,8 +2,9 @@ import numpy as np
 import CoolProp.CoolProp as CP
 import matplotlib.pyplot as plt
 
+
 # Constants
-length_pipe = 5  # Convert 40 ft to meters
+length_pipe = 15 #m
 diameter_pipe = 6 * 0.0254  # Convert 6 inches to meters
 wall_thickness = 0.005  # Pipe wall thickness in meters
 volume_pipe = np.pi * (diameter_pipe / 2)**2 * length_pipe
@@ -19,11 +20,11 @@ initial_pressure_Pa = initial_pressure_psig * 6894.76 + 101325  # Convert PSIG t
 P_atm = 101325  # Atmospheric pressure in Pa
 fluid = "CO2"
 C_d = 0.8  # Discharge coefficient
-orifice_diameter = diameter_pipe/2 # Orifice diameter in meters (example value)
+orifice_diameter = diameter_pipe/3 # Orifice diameter in meters (example value)
 area_orifice = np.pi * (orifice_diameter / 2)**2  # Area of the orifice
 
 # Heat transfer parameters
-h = 100  # Convective heat transfer coefficient (W/m^2·K)
+h = 2000  # Convective heat transfer coefficient (W/m^2·K)
 k = 16  # Thermal conductivity of 316 stainless steel (W/m·K)
 rho_wall = 8000  # Density of 316 stainless steel (kg/m³)
 cp_wall = 500  # Specific heat capacity of 316 stainless steel (J/kg·K)
@@ -53,6 +54,8 @@ T_wall = np.full(num_time_steps + 1, initial_wall_temp_K)
 mass_flow_rate = np.zeros(num_time_steps + 1)
 mass_in_pipe = np.full(num_time_steps + 1, initial_mass)
 internal_energy = np.full(num_time_steps + 1, initial_mass * u_initial)
+enthalpy = np.full(num_time_steps + 1, initial_mass * h_initial)
+entropy = np.zeros(num_time_steps + 1)
 time = np.arange(0, time_total + dt, dt)
 
 # Simulation loop
@@ -95,7 +98,23 @@ for t in range(1, num_time_steps + 1):
     # Energy balance
     dU = -mass_flow_rate[t] * h_out * dt
     internal_energy[t] = internal_energy[t-1] + dU
+    enthalpy[t] = enthalpy[t-1] + dU
 
+    try:
+        if 0 <= Q <= 1:
+            if Q < 1e-4:
+                entropy[t] = CP.PropsSI('S', 'P', P[t], 'Q', 0, fluid)
+            elif Q > 1 - 1e-4:
+                entropy[t] = CP.PropsSI('S', 'P', P[t], 'Q', 1, fluid)
+            else:
+                entropy[t] = CP.PropsSI('S', 'P', P[t], 'Q', Q, fluid)
+        else:
+            entropy[t] = CP.PropsSI('S', 'P', P[t], 'T', T[t], fluid)
+    except ValueError as e:
+        print(f"Entropy calculation issue at time step {t}: {e}")
+        entropy[t] = entropy[t-1]  # Keep the previous entropy
+    
+    
     # Update pressure and temperature using CoolProp with GERG-2008
     if mass_in_pipe[t] > 0:
         # Calculate new internal energy per unit mass
@@ -159,38 +178,60 @@ T_wall_F = T_wall_F[:t]
 mass_flow_rate = mass_flow_rate[:t]
 mass_in_pipe = mass_in_pipe[:t]
 internal_energy = internal_energy[:t]
+enthalpy = enthalpy[:t]
+entropy = entropy[:t]
 time = time[:t]
 
 # Plot results
-plt.figure(figsize=(10, 10))
+plt.figure(figsize=(15, 15))
 
-plt.subplot(4, 1, 1)
+plt.subplot(3, 2, 1)
 plt.plot(time, P_psi, label='Pressure (PSI)', color='blue')
 plt.xlabel('Time (s)')
 plt.ylabel('Pressure (PSI)')
-plt.title('Pressure, Temperature, Mass Flow Rate, and Mass in Pipe over Time')
+plt.title('Pressure over Time')
 plt.legend()
 plt.grid(True)
 
-plt.subplot(4, 1, 2)
+plt.subplot(3, 2, 2)
 plt.plot(time, T_F, label='Fluid Temperature (°F)', color='orange')
 plt.plot(time, T_wall_F, label='Wall Temperature (°F)', color='green')
 plt.xlabel('Time (s)')
 plt.ylabel('Temperature (°F)')
+plt.title('Temperature over Time')
 plt.legend()
 plt.grid(True)
 
-plt.subplot(4, 1, 3)
+plt.subplot(3, 2, 3)
 plt.plot(time, mass_flow_rate, label='Mass Flow Rate (kg/s)', color='red')
 plt.xlabel('Time (s)')
 plt.ylabel('Mass Flow Rate (kg/s)')
+plt.title('Mass Flow Rate over Time')
 plt.legend()
 plt.grid(True)
 
-plt.subplot(4, 1, 4)
+plt.subplot(3, 2, 4)
 plt.plot(time, mass_in_pipe, label='Mass in Pipe (kg)', color='green')
 plt.xlabel('Time (s)')
 plt.ylabel('Mass in Pipe (kg)')
+plt.title('Mass in Pipe over Time')
+plt.legend()
+plt.grid(True)
+
+plt.subplot(3, 2, 5)
+plt.plot(time, enthalpy, label='Enthalpy (J)', color='purple')
+plt.plot(time, internal_energy, label='Internal Energy (J)', color='blue')
+plt.xlabel('Time (s)')
+plt.ylabel('Energy (J)')
+plt.title('Enthalpy and Internal Energy over Time')
+plt.legend()
+plt.grid(True)
+
+plt.subplot(3, 2, 6)
+plt.plot(time, entropy, label='Entropy (J/K)', color='brown')
+plt.xlabel('Time (s)')
+plt.ylabel('Entropy (J/K)')
+plt.title('Entropy over Time')
 plt.legend()
 plt.grid(True)
 
