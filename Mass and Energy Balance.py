@@ -71,9 +71,10 @@ for t in range(1, num_time_steps + 1):
             elif Q > 1 - 1e-4:
                 h_out = CP.PropsSI('H', 'P', P[t-1], 'Q', 1, fluid)
             else:
-                h_out = CP.PropsSI('H', 'P', P[t-1], 'Q', Q, fluid)
-        else:
-            h_out = CP.PropsSI('H', 'P', P[t-1], 'T', T[t-1], fluid)
+            # Single-phase region
+            T[t] = CP.PropsSI('T', 'UMASS', u_new, 'D', rho_new, fluid)
+            P[t] = CP.PropsSI('P', 'UMASS', u_new, 'D', rho_new, fluid)
+
     except ValueError as e:
         print(f"Saturation check issue at time step {t}: {e}")
         h_out = h_initial  # Fallback to initial value
